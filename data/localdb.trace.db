@@ -1,0 +1,54 @@
+2025-08-21 19:45:06.947689-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "SELECT\000aCAST(s.created_at AS DATE) AS dataReferencia,\000as.codigo_produto AS codigoProduto,\000as.descricao_produto AS descricaoProduto,\000aROUND(AVG(s.taxa_juros), 4) AS taxaMediaJuroSAC,\000aROUND(AVG(s.taxa_juros), 4) AS taxaMediaJuroPRICE,\000aROUND(AVG(pp.valorMedioPrestacao), 2) AS valorMedioPrestacao,\000aSUM(s.valor_desejado) AS valorTotalDesejado,\000aSUM(pp.valorTotalCredito) AS valorTotalCreditoSAC\000a[*]SUM(pp.valorTotalCredito) AS valorTotalCreditoPRICE\000aFROM SIMULACAO s\000aJOIN (\000aSELECT\000ap.simulacao_id,\000aAVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,\000aAVG(p.valor_prestacao) AS valorMedioPrestacaoPRICE,\000aAVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,\000aSUM(p.valor_prestacao) AS valorTotalCreditoPRICE\000aFROM PARCELA p\000aGROUP BY p.simulacao_id\000a) pp ON pp.simulacao_id = s.id_simulacao\000aWHERE CAST(s.created_at AS DATE) = ?\000aGROUP BY CAST(s.created_at AS DATE), s.codigo_produto, s.descricao_produto\000a"; SQL statement:
+SELECT
+CAST(s.created_at AS DATE) AS dataReferencia,
+s.codigo_produto AS codigoProduto,
+s.descricao_produto AS descricaoProduto,
+ROUND(AVG(s.taxa_juros), 4) AS taxaMediaJuroSAC,
+ROUND(AVG(s.taxa_juros), 4) AS taxaMediaJuroPRICE,
+ROUND(AVG(pp.valorMedioPrestacao), 2) AS valorMedioPrestacao,
+SUM(s.valor_desejado) AS valorTotalDesejado,
+SUM(pp.valorTotalCredito) AS valorTotalCreditoSAC
+SUM(pp.valorTotalCredito) AS valorTotalCreditoPRICE
+FROM SIMULACAO s
+JOIN (
+SELECT
+p.simulacao_id,
+AVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,
+AVG(p.valor_prestacao) AS valorMedioPrestacaoPRICE,
+AVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,
+SUM(p.valor_prestacao) AS valorTotalCreditoPRICE
+FROM PARCELA p
+GROUP BY p.simulacao_id
+) pp ON pp.simulacao_id = s.id_simulacao
+WHERE CAST(s.created_at AS DATE) = ?
+GROUP BY CAST(s.created_at AS DATE), s.codigo_produto, s.descricao_produto
+ [42000-232]
+2025-08-21 19:55:30.995987-03:00 jdbc[3]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "SELECT\000aCAST(s.created_at AS DATE) AS dataReferencia,\000as.codigo_produto AS codigoProduto,\000as.descricao_produto AS descricaoProduto,\000aROUND(AVG(s.taxa_juros), 4) AS taxaMedia,\000aROUND(AVG(pp.valorMedioPrestacaoSAC), 2) AS valorMedioPrestacaoSAC,\000aROUND(AVG(pp.valorMedioPrestacaoPRICE), 2) AS valorMedioPrestacaoPRICE,\000aSUM(s.valor_desejado) AS valorTotalDesejado,\000aSUM(pp.valorTotalCreditoSAC) AS valorTotalCreditoSAC,\000aSUM(pp.valorTotalCreditoPRICE) AS valorTotalCreditoPRICE\000aFROM SIMULACAO s\000aJOIN (\000aSELECT\000ap.simulacao_id,\000a[*]WHERE p.tipo = 'SAC'\000aAVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,\000aSUM(p.valor_prestacao) AS valorTotalCreditoSAC,\000aWHERE p.tipo = 'PRICE'\000aAVG(p.valor_prestacao) AS valorMedioPrestacaoPRICE,\000aSUM(p.valor_prestacao) AS valorTotalCreditoPRICE\000aFROM PARCELA p\000aGROUP BY p.simulacao_id\000a) pp ON pp.simulacao_id = s.id_simulacao\000aWHERE CAST(s.created_at AS DATE) = ?\000aGROUP BY CAST(s.created_at AS DATE), s.codigo_produto, s.descricao_produto\000a"; expected "*, INTERSECTS (, NOT, EXISTS, UNIQUE, INTERSECTS"; SQL statement:
+SELECT
+CAST(s.created_at AS DATE) AS dataReferencia,
+s.codigo_produto AS codigoProduto,
+s.descricao_produto AS descricaoProduto,
+ROUND(AVG(s.taxa_juros), 4) AS taxaMedia,
+ROUND(AVG(pp.valorMedioPrestacaoSAC), 2) AS valorMedioPrestacaoSAC,
+ROUND(AVG(pp.valorMedioPrestacaoPRICE), 2) AS valorMedioPrestacaoPRICE,
+SUM(s.valor_desejado) AS valorTotalDesejado,
+SUM(pp.valorTotalCreditoSAC) AS valorTotalCreditoSAC,
+SUM(pp.valorTotalCreditoPRICE) AS valorTotalCreditoPRICE
+FROM SIMULACAO s
+JOIN (
+SELECT
+p.simulacao_id,
+WHERE p.tipo = 'SAC'
+AVG(p.valor_prestacao) AS valorMedioPrestacaoSAC,
+SUM(p.valor_prestacao) AS valorTotalCreditoSAC,
+WHERE p.tipo = 'PRICE'
+AVG(p.valor_prestacao) AS valorMedioPrestacaoPRICE,
+SUM(p.valor_prestacao) AS valorTotalCreditoPRICE
+FROM PARCELA p
+GROUP BY p.simulacao_id
+) pp ON pp.simulacao_id = s.id_simulacao
+WHERE CAST(s.created_at AS DATE) = ?
+GROUP BY CAST(s.created_at AS DATE), s.codigo_produto, s.descricao_produto
+ [42001-232]
