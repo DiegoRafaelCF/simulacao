@@ -26,7 +26,7 @@ public class RequestTelemetryInterceptor implements HandlerInterceptor {
 
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
-        if(request.getRequestURI().equals("/simulacao/telemetria") || request.getRequestURI().equals("/favicon.ico")) {
+        if(request.getRequestURI().equals("/api/v1/telemetria") || request.getRequestURI().equals("/favicon.ico")) {
             return;
         }
 

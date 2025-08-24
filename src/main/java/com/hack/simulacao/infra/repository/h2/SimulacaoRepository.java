@@ -3,13 +3,22 @@ package com.hack.simulacao.infra.repository.h2;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.hack.simulacao.domain.h2.Simulacao;
+import com.hack.simulacao.infra.repository.h2.projection.VolumeProdutoDiaProjection;
 
 public interface SimulacaoRepository extends JpaRepository<Simulacao, Long> {
+
+    @EntityGraph(attributePaths = "parcelas")
+    @Query("select s from Simulacao s")
+    Page<Simulacao> findAllWithParcelas(Pageable pageable);
+
     @Query(value = """
             SELECT 
             CAST(s.created_at AS DATE) AS dataReferencia,
@@ -36,5 +45,5 @@ public interface SimulacaoRepository extends JpaRepository<Simulacao, Long> {
             GROUP BY CAST(s.created_at AS DATE), s.codigo_produto, s.descricao_produto
             """,
             nativeQuery = true)
-            List<Object[]> volumePorProdutoDiaRaw(@Param("data") LocalDate data);
+            List<VolumeProdutoDiaProjection> volumePorProdutoDia(@Param("data") LocalDate data);
 }

@@ -1,6 +1,5 @@
 package com.hack.simulacao.application.service;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -10,90 +9,149 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.hack.simulacao.api.dto.ListagemSimulacaoResponse;
-import com.hack.simulacao.api.dto.ParcelaResponse;
 import com.hack.simulacao.api.dto.ResultadoSimulacao;
 import com.hack.simulacao.api.dto.SimulacaoRequest;
 import com.hack.simulacao.api.dto.SimulacaoResponse;
 import com.hack.simulacao.api.dto.SimulacaoResumoResponse;
-import com.hack.simulacao.api.dto.ListaEndpoints;
 import com.hack.simulacao.api.dto.VolumeProdutoDiaResponse;
+import com.hack.simulacao.api.error.exceptions.NenhumProdutoCadastradoException;
+import com.hack.simulacao.api.error.exceptions.ProdutoNaoEncontradoException;
+import com.hack.simulacao.api.mapper.ParcelaMapper;
 import com.hack.simulacao.api.dto.SimulacoesDia;
-import com.hack.simulacao.api.dto.TelemetriaResponse;
 import com.hack.simulacao.domain.h2.Parcela;
 import com.hack.simulacao.domain.h2.Simulacao;
+import com.hack.simulacao.domain.sqlserver.Produto;
 import com.hack.simulacao.infra.messaging.EventHubPublisher;
 import com.hack.simulacao.infra.repository.h2.SimulacaoRepository;
 import com.hack.simulacao.infra.repository.h2.TelemetriaRepository;
+import com.hack.simulacao.infra.repository.h2.projection.VolumeProdutoDiaProjection;
 import com.hack.simulacao.infra.repository.sqlserver.ProdutoRepository;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class SimulacaoService {
     
     private final ProdutoRepository produtoRepository;
     private final SimulacaoRepository simulacaoRepository;
-    private final TelemetriaRepository telemetriaRepository;
     private final EventHubPublisher eventHubPublisher;
     private final SacCalculator sacCalculator;
     private final PriceCalculator priceCalculator;
+    private final ParcelaMapper parcelaMapper;
 
     public SimulacaoService(ProdutoRepository produtoRepository,
                             SimulacaoRepository simulacaoRepository,
                             TelemetriaRepository telemetriaRepository,
                             EventHubPublisher eventHubPublisher,
                             SacCalculator sacCalculator,
-                            PriceCalculator priceCalculator) {
+                            PriceCalculator priceCalculator,
+                            ParcelaMapper parcelaMapper
+                            ) {
         this.produtoRepository = produtoRepository;  
         this.simulacaoRepository = simulacaoRepository;
-        this.telemetriaRepository = telemetriaRepository;
         this.eventHubPublisher = eventHubPublisher; 
         this.sacCalculator = sacCalculator; 
-        this.priceCalculator = priceCalculator;                       
+        this.priceCalculator = priceCalculator;  
+        this.parcelaMapper = parcelaMapper;                     
     }
 
+    @Transactional
     public SimulacaoResponse realizarSimulacao(SimulacaoRequest request) {
-        if (request.getValorDesejado() == null || request.getPrazo() == null) {
-            throw new IllegalArgumentException("Valor desejado e prazo são obrigatórios.");
-        }
-        if (request.getValorDesejado().doubleValue() <= 0) {
-            throw new IllegalArgumentException("Valor desejado deve ser maior que zero.");
-        }
-        if (request.getPrazo() < 1) {
-            throw new IllegalArgumentException("Prazo deve ser maior ou igual a 1 mês.");
-        }
 
-        var produtos = produtoRepository.findAll();
-        if (produtos.isEmpty()) {
-            throw new IllegalStateException("Nenhum produto cadastrado.");
-        }
-
-        var produtoSelecionado = produtos.stream()
-                .filter(p ->
-                        request.getValorDesejado().compareTo(p.getVrMinimo()) >= 0 &&
-                        (p.getVrMaximo() == null || request.getValorDesejado().compareTo(p.getVrMaximo()) <= 0) &&
-                        request.getPrazo() >= p.getNuMinimoMeses() &&
-                        (p.getNuMaximoMeses() == null || request.getPrazo() <= p.getNuMaximoMeses())
-                )
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Nenhum produto compatível com os critérios informados."));
-
+        Produto produtoSelecionado = selecionarProduto(request);
+        
         List<Parcela> parcelasSac = sacCalculator.calcular(
-                request.getValorDesejado(),
-                request.getPrazo(),
+                request.valorDesejado(),
+                request.prazo(),
                 produtoSelecionado.getPcTaxaJuros(),
                 "SAC");
 
         List<Parcela> parcelasPrice = priceCalculator.calcular(
-                request.getValorDesejado(),
-                request.getPrazo(),
+                request.valorDesejado(),
+                request.prazo(),
                 produtoSelecionado.getPcTaxaJuros(),
                 "PRICE");
 
+        Simulacao simulacao = montarSimulacao(request, produtoSelecionado, parcelasSac, parcelasPrice);
+
+        Simulacao saved = simulacaoRepository.save(simulacao);
+
+        eventHubPublisher.publish(saved);
+
+        return montarResponse(saved, parcelasSac, parcelasPrice);
+    }
+
+    public ListagemSimulacaoResponse listarSimulacoes(Pageable pageable) {
+
+        Page<Simulacao> page = simulacaoRepository.findAllWithParcelas(pageable);
+
+        Page<SimulacaoResumoResponse> mapped = page.map(simulacao ->
+            new SimulacaoResumoResponse(
+                simulacao.getIdSimulacao(),
+                simulacao.getValorDesejado(),
+                simulacao.getPrazo(),
+                simulacao.totalPrice(),
+                simulacao.totalSac()
+            )
+        );
+
+        return new ListagemSimulacaoResponse(
+            mapped.getNumber(),
+            mapped.getTotalElements(),
+            mapped.getSize(),
+            mapped.getContent()
+        );
+    }
+
+    public VolumeProdutoDiaResponse obterVolumeProdutoPorDia(LocalDate data) {
+        List<VolumeProdutoDiaProjection> raw = simulacaoRepository.volumePorProdutoDia(data);
+
+        List<SimulacoesDia> produtos = raw.stream().map(v -> 
+            new SimulacoesDia(
+                v.getCodigoProduto(),
+                v.getDescricaoProduto(),
+                v.getTaxaMedia(),
+                v.getValorMedioPrestacaoSAC(),
+                v.getValorMedioPrestacaoPRICE(),
+                v.getValorTotalDesejado(),
+                v.getValorTotalCreditoSAC(),
+                v.getValorTotalCreditoPRICE()
+        )).toList();
+
+        return new VolumeProdutoDiaResponse(data, produtos);
+    }
+
+    public Produto selecionarProduto(SimulacaoRequest request) {
+        List<Produto> produtos = produtoRepository.findAll();
+        if (produtos.isEmpty()) {
+            throw new NenhumProdutoCadastradoException();
+        }
+
+        Produto produtoSelecionado = produtos.stream()
+                .filter(p ->
+                        request.valorDesejado().compareTo(p.getVrMinimo()) >= 0 &&
+                        (p.getVrMaximo() == null || request.valorDesejado().compareTo(p.getVrMaximo()) <= 0) &&
+                        request.prazo() >= p.getNuMinimoMeses() &&
+                        (p.getNuMaximoMeses() == null || request.prazo() <= p.getNuMaximoMeses())
+                )
+                .findFirst()
+                .orElseThrow(() -> new ProdutoNaoEncontradoException("Nenhum produto compatível com os critérios informados."));
+
+        return produtoSelecionado;
+    }
+
+    public Simulacao montarSimulacao(
+        SimulacaoRequest request, 
+        Produto produtoSelecionado, 
+        List<Parcela> parcelasSac, 
+        List<Parcela> parcelasPrice
+    ) {
         Simulacao simulacao = new Simulacao();
         simulacao.setCodigoProduto(produtoSelecionado.getCoProduto());
         simulacao.setDescricaoProduto(produtoSelecionado.getNoProduto());
         simulacao.setTaxaJuros(produtoSelecionado.getPcTaxaJuros());
-        simulacao.setValorDesejado(request.getValorDesejado());
-        simulacao.setPrazo(request.getPrazo());
+        simulacao.setValorDesejado(request.valorDesejado());
+        simulacao.setPrazo(request.prazo());
         
         parcelasSac.forEach(p -> p.setSimulacao(simulacao));
         parcelasPrice.forEach(p -> p.setSimulacao(simulacao));
@@ -101,12 +159,21 @@ public class SimulacaoService {
         simulacao.getParcelas().addAll(parcelasSac);
         simulacao.getParcelas().addAll(parcelasPrice);
 
-        Simulacao saved = simulacaoRepository.save(simulacao);
+        return simulacao;
+    }
 
-        eventHubPublisher.publish(saved);
+    public SimulacaoResponse montarResponse(
+        Simulacao saved, 
+        List<Parcela> parcelasSac, 
+        List<Parcela> parcelasPrice
+    ) {
 
-        List<ResultadoSimulacao> resultado = List.of(new ResultadoSimulacao("SAC", parcelasSac.stream().map((Parcela p) -> new ParcelaResponse(p.getNumero(), p.getValorAmortizacao(), p.getValorJuros(), p.getValorPrestacao())).toList()), new ResultadoSimulacao("PRICE", parcelasPrice.stream().map((Parcela p) -> new ParcelaResponse(p.getNumero(), p.getValorAmortizacao(), p.getValorJuros(), p.getValorPrestacao())).toList()));
-
+        // parcelasPrice.stream()
+        //     .map((Parcela p) -> new ParcelaResponse(p.getNumero(), p.getValorAmortizacao(), p.getValorJuros(), p.getValorPrestacao()))
+        //     .toList())
+        List<ResultadoSimulacao> resultado = List.of(
+            new ResultadoSimulacao("SAC", parcelaMapper.toReponse(parcelasSac)), 
+            new ResultadoSimulacao("PRICE", parcelaMapper.toReponse(parcelasPrice)));
 
         return new SimulacaoResponse(
             saved.getIdSimulacao(),
@@ -115,72 +182,6 @@ public class SimulacaoService {
             saved.getTaxaJuros(),
             resultado
         );
-    }
-
-    public ListagemSimulacaoResponse listarSimulacoes(Pageable pageable) {
-
-        Page<SimulacaoResumoResponse> page = simulacaoRepository
-        .findAll(pageable)
-        .map(simulacao -> {
-            BigDecimal totalPrice = simulacao.getParcelas().stream().filter(parcela -> "PRICE".equals(parcela.getTipo()))
-            .map(parcela -> parcela.getValorPrestacao())
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal totalSac = simulacao.getParcelas().stream().filter(parcela -> "SAC".equals(parcela.getTipo()))
-            .map(parcela -> parcela.getValorPrestacao())
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-            return new SimulacaoResumoResponse(
-                simulacao.getIdSimulacao(),
-                simulacao.getValorDesejado(),
-                simulacao.getPrazo(),
-                totalPrice,
-                totalSac
-            );
-        });
-
-        return new ListagemSimulacaoResponse(
-            page.getNumber(),
-            page.getTotalElements(),
-            page.getSize(),
-            page.getContent()
-        );
-    }
-
-    public VolumeProdutoDiaResponse volumeProdutoDia(LocalDate data) {
-        List<Object[]> raw = simulacaoRepository.volumePorProdutoDiaRaw(data);
-
-        List<SimulacoesDia> produtos = raw.stream().map(o -> new SimulacoesDia(
-            (Integer) o[1],
-            (String) o[2],
-            (BigDecimal) o[3],
-            (BigDecimal) o[4],
-            (BigDecimal) o[5],
-            (BigDecimal) o[6],
-            (BigDecimal) o[7],
-            (BigDecimal) o[8]
-        )).toList();
-
-        return new VolumeProdutoDiaResponse(data, produtos);
-    }
-
-    public TelemetriaResponse listarTelemetria(LocalDate data) {
-        List<Object[]> raw = telemetriaRepository.resumoTelemetria(data);
-
-        if(raw.isEmpty()) {
-            return new TelemetriaResponse(data, List.of());
-        }
-
-        List<ListaEndpoints> list = raw
-        .stream()
-        .map(o -> new ListaEndpoints(
-            (String) o[0],
-            ((Number) o[1]).longValue(),
-            ((Number) o[2]).doubleValue(),
-            ((Number) o[3]).longValue(),
-            ((Number) o[4]).longValue(),
-            ((Number) o[5]).doubleValue()
-        )).toList();
-
-        return new TelemetriaResponse(data, list);
     }
 
 }

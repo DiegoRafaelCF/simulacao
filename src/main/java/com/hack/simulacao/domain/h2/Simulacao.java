@@ -44,4 +44,14 @@ public class Simulacao {
     @OneToMany(mappedBy = "simulacao", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<Parcela> parcelas = new ArrayList<>();
+
+    public BigDecimal totalPrestacoesPorTipo(String tipo) {
+        return parcelas.stream()
+                .filter(p -> tipo.equals(p.getTipo()))
+                .map(Parcela::getValorPrestacao)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal totalSac()   { return totalPrestacoesPorTipo("SAC"); }
+    public BigDecimal totalPrice() { return totalPrestacoesPorTipo("PRICE"); }
 }

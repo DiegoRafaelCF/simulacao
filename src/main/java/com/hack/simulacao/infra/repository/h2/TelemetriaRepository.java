@@ -13,9 +13,9 @@ public interface TelemetriaRepository extends JpaRepository<Telemetria, Long>  {
     @Query("""
             SELECT 
             CASE
-            WHEN t.endpoint = '/simulacao' THEN 'Simulacao'
-            WHEN t.endpoint = '/simulacao/lista' THEN 'Lista'
-            WHEN t.endpoint = '/simulacao/produtoPorDia' THEN 'Produto por Dia'
+            WHEN t.endpoint = '/api/v1/simulacoes' THEN 'Simulação'
+            WHEN t.endpoint = '/api/v1/simulacoes/lista' THEN 'Lista'
+            WHEN t.endpoint = '/api/v1/simulacoes/volume-produto-dia' THEN 'Volume'
             ELSE t.endpoint
             END as endpointNormalizado, 
             COUNT(*) as qtdRequisicoes,
@@ -25,12 +25,12 @@ public interface TelemetriaRepository extends JpaRepository<Telemetria, Long>  {
             ROUND(SUM(CASE WHEN t.statusCode = 200 THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 2) as percentualSucesso
             FROM Telemetria t
             WHERE CAST(t.dataEvento AS DATE) = :data
-            AND t.endpoint <> '/simulacao/telemetria'
+            AND t.endpoint <> '/api/v1/telemetria'
             GROUP BY
             CASE
-            WHEN t.endpoint = '/simulacao' THEN 'Simulacao'
-            WHEN t.endpoint = '/simulacao/lista' THEN 'Lista'
-            WHEN t.endpoint = '/simulacao/produtoPorDia' THEN 'Produto por Dia'
+            WHEN t.endpoint = '/api/v1/simulacoes' THEN 'Simulação'
+            WHEN t.endpoint = '/api/v1/simulacoes/lista' THEN 'Lista'
+            WHEN t.endpoint = '/api/v1/simulacoes/volume-produto-dia' THEN 'Volume'
             ELSE t.endpoint
             END
             """)
