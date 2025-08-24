@@ -29,12 +29,13 @@ public class PriceCalculator {
             BigDecimal juros = saldo.multiply(i).setScale(2, RoundingMode.HALF_UP);
             BigDecimal amortizacao = valorParcela.subtract(juros).setScale(2, RoundingMode.HALF_UP);
 
-            Parcela p = new Parcela();
-            p.setNumero(numero);
-            p.setValorAmortizacao(amortizacao);
-            p.setValorJuros(juros);
-            p.setValorPrestacao(valorParcela);
-            p.setTipo(tipo);
+            Parcela p = new Parcela.Builder()
+                .numero(numero)
+                .valorAmortizacao(amortizacao)
+                .valorJuros(juros)
+                .valorPrestacao(valorParcela)
+                .tipo(tipo)
+                .build();
             parcelas.add(p);
             
             saldo = saldo.subtract(amortizacao).setScale(2, RoundingMode.HALF_UP);

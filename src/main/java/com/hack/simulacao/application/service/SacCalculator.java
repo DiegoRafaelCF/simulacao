@@ -22,12 +22,13 @@ public class SacCalculator {
             BigDecimal juros = saldo.multiply(taxa).setScale(2, RoundingMode.HALF_UP);
             BigDecimal prestacao = amortizacao.add(juros).setScale(2, RoundingMode.HALF_UP);
 
-            Parcela p = new Parcela();
-            p.setNumero(i);
-            p.setValorAmortizacao(amortizacao);
-            p.setValorJuros(juros);
-            p.setValorPrestacao(prestacao);
-            p.setTipo(tipo);
+            Parcela p = new Parcela.Builder()
+                .numero(i)
+                .valorAmortizacao(amortizacao)
+                .valorJuros(juros)
+                .valorPrestacao(prestacao)
+                .tipo(tipo)
+                .build();
             parcelas.add(p);
 
             saldo = saldo.subtract(amortizacao).setScale(2, RoundingMode.HALF_UP);
