@@ -13,5 +13,5 @@ public interface ParcelaMapper {
     ParcelaMapper INSTANCE = Mappers.getMapper(ParcelaMapper.class);
 
     ParcelaResponse toResponse(Parcela parcela);
-    List<ParcelaResponse> toReponse(List<Parcela> parcelas);
+    List<ParcelaResponse> toResponse(List<Parcela> parcelas);
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.hack.simulacao.api.dto.ListaEndpoints;
 import com.hack.simulacao.api.dto.TelemetriaResponse;
 import com.hack.simulacao.infra.repository.h2.TelemetriaRepository;
+import com.hack.simulacao.infra.repository.h2.projection.TelemetriaProjection;
 
 @Service
 public class TelemetriaService {
@@ -19,7 +20,7 @@ public class TelemetriaService {
     }
 
     public TelemetriaResponse obterTelemetriaPorDia(LocalDate data) {
-        List<Object[]> raw = telemetriaRepository.resumoTelemetria(data);
+        List<TelemetriaProjection> raw = telemetriaRepository.resumoTelemetria(data);
 
         if(raw.isEmpty()) {
             return new TelemetriaResponse(data, List.of());
@@ -27,13 +28,13 @@ public class TelemetriaService {
 
         List<ListaEndpoints> list = raw
         .stream()
-        .map(o -> new ListaEndpoints(
-            (String) o[0],
-            ((Number) o[1]).longValue(),
-            ((Number) o[2]).doubleValue(),
-            ((Number) o[3]).longValue(),
-            ((Number) o[4]).longValue(),
-            ((Number) o[5]).doubleValue()
+        .map(t -> new ListaEndpoints(
+            t.getEndpointNormalizado(),
+            t.getQtdRequisicoes(),
+            t.getTempoMedio(),
+            t.getTempoMinimo(),
+            t.getTempoMaximo(),
+            t.getPercentualSucesso()
         )).toList();
 
         return new TelemetriaResponse(data, list);

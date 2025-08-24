@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.hack.simulacao.api.dto.ListagemSimulacaoResponse;
 import com.hack.simulacao.api.dto.ResultadoSimulacao;
@@ -23,11 +24,8 @@ import com.hack.simulacao.domain.h2.Simulacao;
 import com.hack.simulacao.domain.sqlserver.Produto;
 import com.hack.simulacao.infra.messaging.EventHubPublisher;
 import com.hack.simulacao.infra.repository.h2.SimulacaoRepository;
-import com.hack.simulacao.infra.repository.h2.TelemetriaRepository;
 import com.hack.simulacao.infra.repository.h2.projection.VolumeProdutoDiaProjection;
 import com.hack.simulacao.infra.repository.sqlserver.ProdutoRepository;
-
-import jakarta.transaction.Transactional;
 
 @Service
 public class SimulacaoService {
@@ -41,7 +39,6 @@ public class SimulacaoService {
 
     public SimulacaoService(ProdutoRepository produtoRepository,
                             SimulacaoRepository simulacaoRepository,
-                            TelemetriaRepository telemetriaRepository,
                             EventHubPublisher eventHubPublisher,
                             SacCalculator sacCalculator,
                             PriceCalculator priceCalculator,
@@ -81,6 +78,7 @@ public class SimulacaoService {
         return montarResponse(saved, parcelasSac, parcelasPrice);
     }
 
+    @Transactional(readOnly = true)
     public ListagemSimulacaoResponse listarSimulacoes(Pageable pageable) {
 
         Page<Simulacao> page = simulacaoRepository.findAllWithParcelas(pageable);
@@ -103,6 +101,7 @@ public class SimulacaoService {
         );
     }
 
+    @Transactional(readOnly = true)
     public VolumeProdutoDiaResponse obterVolumeProdutoPorDia(LocalDate data) {
         List<VolumeProdutoDiaProjection> raw = simulacaoRepository.volumePorProdutoDia(data);
 
@@ -121,26 +120,28 @@ public class SimulacaoService {
         return new VolumeProdutoDiaResponse(data, produtos);
     }
 
-    public Produto selecionarProduto(SimulacaoRequest request) {
+    private boolean produtoAtendeCriterios(Produto p, SimulacaoRequest request) {
+        return request.valorDesejado().compareTo(p.getVrMinimo()) >= 0 &&
+            (p.getVrMaximo() == null || request.valorDesejado().compareTo(p.getVrMaximo()) <= 0) &&
+            request.prazo() >= p.getNuMinimoMeses() &&
+            (p.getNuMaximoMeses() == null || request.prazo() <= p.getNuMaximoMeses());
+    }
+
+    private Produto selecionarProduto(SimulacaoRequest request) {
         List<Produto> produtos = produtoRepository.findAll();
         if (produtos.isEmpty()) {
             throw new NenhumProdutoCadastradoException();
         }
 
         Produto produtoSelecionado = produtos.stream()
-                .filter(p ->
-                        request.valorDesejado().compareTo(p.getVrMinimo()) >= 0 &&
-                        (p.getVrMaximo() == null || request.valorDesejado().compareTo(p.getVrMaximo()) <= 0) &&
-                        request.prazo() >= p.getNuMinimoMeses() &&
-                        (p.getNuMaximoMeses() == null || request.prazo() <= p.getNuMaximoMeses())
-                )
+                .filter(p -> produtoAtendeCriterios(p, request))
                 .findFirst()
                 .orElseThrow(() -> new ProdutoNaoEncontradoException("Nenhum produto compatível com os critérios informados."));
 
         return produtoSelecionado;
     }
 
-    public Simulacao montarSimulacao(
+    private Simulacao montarSimulacao(
         SimulacaoRequest request, 
         Produto produtoSelecionado, 
         List<Parcela> parcelasSac, 
@@ -162,18 +163,15 @@ public class SimulacaoService {
         return simulacao;
     }
 
-    public SimulacaoResponse montarResponse(
+    private SimulacaoResponse montarResponse(
         Simulacao saved, 
         List<Parcela> parcelasSac, 
         List<Parcela> parcelasPrice
     ) {
 
-        // parcelasPrice.stream()
-        //     .map((Parcela p) -> new ParcelaResponse(p.getNumero(), p.getValorAmortizacao(), p.getValorJuros(), p.getValorPrestacao()))
-        //     .toList())
         List<ResultadoSimulacao> resultado = List.of(
-            new ResultadoSimulacao("SAC", parcelaMapper.toReponse(parcelasSac)), 
-            new ResultadoSimulacao("PRICE", parcelaMapper.toReponse(parcelasPrice)));
+            new ResultadoSimulacao("SAC", parcelaMapper.toResponse(parcelasSac)), 
+            new ResultadoSimulacao("PRICE", parcelaMapper.toResponse(parcelasPrice)));
 
         return new SimulacaoResponse(
             saved.getIdSimulacao(),

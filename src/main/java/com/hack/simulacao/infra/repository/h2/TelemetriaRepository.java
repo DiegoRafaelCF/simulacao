@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.hack.simulacao.domain.h2.Telemetria;
+import com.hack.simulacao.infra.repository.h2.projection.TelemetriaProjection;
 
 public interface TelemetriaRepository extends JpaRepository<Telemetria, Long>  {
     @Query("""
@@ -34,5 +35,5 @@ public interface TelemetriaRepository extends JpaRepository<Telemetria, Long>  {
             ELSE t.endpoint
             END
             """)
-            List<Object[]> resumoTelemetria(@Param("data") LocalDate data);
+            List<TelemetriaProjection> resumoTelemetria(@Param("data") LocalDate data);
 }
