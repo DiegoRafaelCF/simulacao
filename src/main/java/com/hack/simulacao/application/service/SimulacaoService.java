@@ -15,7 +15,6 @@ import com.hack.simulacao.api.dto.SimulacaoRequest;
 import com.hack.simulacao.api.dto.SimulacaoResponse;
 import com.hack.simulacao.api.dto.SimulacaoResumoResponse;
 import com.hack.simulacao.api.dto.VolumeProdutoDiaResponse;
-import com.hack.simulacao.api.error.exceptions.NenhumProdutoCadastradoException;
 import com.hack.simulacao.api.error.exceptions.ProdutoNaoEncontradoException;
 import com.hack.simulacao.api.mapper.ParcelaMapper;
 import com.hack.simulacao.api.dto.SimulacoesDia;
@@ -120,21 +119,10 @@ public class SimulacaoService {
         return new VolumeProdutoDiaResponse(data, produtos);
     }
 
-    private boolean produtoAtendeCriterios(Produto p, SimulacaoRequest request) {
-        return request.valorDesejado().compareTo(p.getVrMinimo()) >= 0 &&
-            (p.getVrMaximo() == null || request.valorDesejado().compareTo(p.getVrMaximo()) <= 0) &&
-            request.prazo() >= p.getNuMinimoMeses() &&
-            (p.getNuMaximoMeses() == null || request.prazo() <= p.getNuMaximoMeses());
-    }
-
     private Produto selecionarProduto(SimulacaoRequest request) {
-        List<Produto> produtos = produtoRepository.findAll();
-        if (produtos.isEmpty()) {
-            throw new NenhumProdutoCadastradoException();
-        }
+        List<Produto> produtos = produtoRepository.findByCriterios(request.valorDesejado(), request.prazo());
 
         Produto produtoSelecionado = produtos.stream()
-                .filter(p -> produtoAtendeCriterios(p, request))
                 .findFirst()
                 .orElseThrow(() -> new ProdutoNaoEncontradoException("Nenhum produto compatível com os critérios informados."));
 

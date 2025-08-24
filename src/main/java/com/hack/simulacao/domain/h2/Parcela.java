@@ -30,13 +30,13 @@ public class Parcela {
     @Column(name = "NUMERO")
     private Integer numero;
 
-    @Column(name = "VALOR_AMORTIZACAO", precision = 5, scale = 2)
+    @Column(name = "VALOR_AMORTIZACAO", precision = 19, scale = 2)
     private BigDecimal valorAmortizacao;
 
-    @Column(name = "VALOR_JUROS", precision = 5, scale = 2)
+    @Column(name = "VALOR_JUROS", precision = 19, scale = 2)
     private BigDecimal valorJuros;
 
-    @Column(name = "VALOR_PRESTACAO", precision = 5, scale = 2)
+    @Column(name = "VALOR_PRESTACAO", precision = 19, scale = 2)
     private BigDecimal valorPrestacao;
 
     @Column(name = "TIPO")
