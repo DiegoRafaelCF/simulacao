@@ -30,13 +30,13 @@ public class Parcela {
     @Column(name = "NUMERO")
     private Integer numero;
 
-    @Column(name = "VALOR_AMORTIZACAO", scale = 2)
+    @Column(name = "VALOR_AMORTIZACAO", precision = 5, scale = 2)
     private BigDecimal valorAmortizacao;
 
-    @Column(name = "VALOR_JUROS", scale = 2)
+    @Column(name = "VALOR_JUROS", precision = 5, scale = 2)
     private BigDecimal valorJuros;
 
-    @Column(name = "VALOR_PRESTACAO", scale = 2)
+    @Column(name = "VALOR_PRESTACAO", precision = 5, scale = 2)
     private BigDecimal valorPrestacao;
 
     @Column(name = "TIPO")
@@ -46,4 +46,17 @@ public class Parcela {
     @JoinColumn(name = "SIMULACAO_ID")
     @JsonBackReference
     private Simulacao simulacao;
+
+    public static class Builder {
+        private final Parcela parcela = new Parcela();
+
+        public Builder numero(Integer numero) { parcela.numero = numero; return this; }
+        public Builder valorAmortizacao(BigDecimal valor) { parcela.valorAmortizacao = valor; return this; }
+        public Builder valorJuros(BigDecimal valor) { parcela.valorJuros = valor; return this; }
+        public Builder valorPrestacao(BigDecimal valor) { parcela.valorPrestacao = valor; return this; }
+        public Builder tipo(String tipo) { parcela.tipo = tipo; return this; }
+        public Builder simulacao(Simulacao simulacao) { parcela.simulacao = simulacao; return this; }
+
+        public Parcela build() { return parcela; }
+    }
 }

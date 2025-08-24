@@ -54,4 +54,21 @@ public class Simulacao {
 
     public BigDecimal totalSac()   { return totalPrestacoesPorTipo("SAC"); }
     public BigDecimal totalPrice() { return totalPrestacoesPorTipo("PRICE"); }
+
+    public static class Builder {
+        private final Simulacao simulacao = new Simulacao();
+
+        public Builder codigoProduto(Integer codigo) { simulacao.codigoProduto = codigo; return this; }
+        public Builder descricaoProduto(String descricao) { simulacao.descricaoProduto = descricao; return this; }
+        public Builder taxaJuros(BigDecimal taxa) { simulacao.taxaJuros = taxa; return this; }
+        public Builder valorDesejado(BigDecimal valor) { simulacao.valorDesejado = valor; return this; }
+        public Builder prazo(Integer prazo) { simulacao.prazo = prazo; return this; }
+        public Builder parcelas(List<Parcela> parcelas) { 
+            parcelas.forEach(p -> p.setSimulacao(simulacao));
+            simulacao.parcelas.addAll(parcelas); 
+            return this; 
+        }
+
+        public Simulacao build() { return simulacao; }
+    }
 }

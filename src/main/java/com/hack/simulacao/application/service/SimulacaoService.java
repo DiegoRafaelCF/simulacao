@@ -2,7 +2,7 @@ package com.hack.simulacao.application.service;
 
 import java.time.LocalDate;
 import java.util.List;
-
+import java.util.stream.Stream;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -147,18 +147,14 @@ public class SimulacaoService {
         List<Parcela> parcelasSac, 
         List<Parcela> parcelasPrice
     ) {
-        Simulacao simulacao = new Simulacao();
-        simulacao.setCodigoProduto(produtoSelecionado.getCoProduto());
-        simulacao.setDescricaoProduto(produtoSelecionado.getNoProduto());
-        simulacao.setTaxaJuros(produtoSelecionado.getPcTaxaJuros());
-        simulacao.setValorDesejado(request.valorDesejado());
-        simulacao.setPrazo(request.prazo());
-        
-        parcelasSac.forEach(p -> p.setSimulacao(simulacao));
-        parcelasPrice.forEach(p -> p.setSimulacao(simulacao));
-
-        simulacao.getParcelas().addAll(parcelasSac);
-        simulacao.getParcelas().addAll(parcelasPrice);
+        Simulacao simulacao = new Simulacao.Builder()
+        .codigoProduto(produtoSelecionado.getCoProduto())
+        .descricaoProduto(produtoSelecionado.getNoProduto())
+        .taxaJuros(produtoSelecionado.getPcTaxaJuros())
+        .valorDesejado(request.valorDesejado())
+        .prazo(request.prazo())
+        .parcelas(Stream.concat(parcelasSac.stream(), parcelasPrice.stream()).toList())
+        .build();
 
         return simulacao;
     }
