@@ -35,4 +35,11 @@ class TelemetriaControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
+
+    @Test
+    void telemetria_SemData_DeveRetornar400() throws Exception {
+        mockMvc.perform(get("/api/v1/telemetria"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
 }

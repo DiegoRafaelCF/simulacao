@@ -164,12 +164,12 @@ class SimulacaoControllerIntegrationTest {
     }
 
     @Test
-    void listarSimulacoes_PaginaNegativa_DeveRetornar500() throws Exception {
+    void listarSimulacoes_PaginaNegativa_DeveRetornar400() throws Exception {
         mockMvc.perform(get("/api/v1/simulacoes/lista")
                 .param("page", "-1")
                 .param("size", "10"))
-                .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.status").value(500));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
     }
 
     @Test
@@ -195,6 +195,13 @@ class SimulacaoControllerIntegrationTest {
         String data = java.time.LocalDate.now().plusDays(1).toString();
         mockMvc.perform(get("/api/v1/simulacoes/volume-produto-dia")
                 .param("data", data))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400));
+    }
+
+    @Test
+    void volumePorProdutoDia_SemData_DeveRetornar400() throws Exception {
+        mockMvc.perform(get("/api/v1/simulacoes/volume-produto-dia"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }

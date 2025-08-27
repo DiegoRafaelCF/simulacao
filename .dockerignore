@@ -1,0 +1,18 @@
+# Build
+/target
+
+# VCS
+/.git
+/.gitignore
+
+# IDEs
+**/*.iml
+.idea/
+.vscode/
+
+# Maven wrapper cache
+.mvn/
+
+# SO/ambiente
+.DS_Store
+.env
